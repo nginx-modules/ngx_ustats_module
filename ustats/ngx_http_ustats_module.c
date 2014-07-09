@@ -546,8 +546,7 @@ const char HTML[] =
  */
 ngx_shm_zone_t * stats_data = NULL;
 static size_t stats_data_size = 0;
-
-
+ngx_str_t shm_name = ngx_string("stats_data");
 
 typedef struct
 {
@@ -724,7 +723,13 @@ static ngx_int_t ngx_http_ustats_init_shm(ngx_shm_zone_t * shm_zone, void * data
 	ngx_slab_pool_t *shpool = (ngx_slab_pool_t*)shm_zone->shm.addr;
 
 	void *new_block = ngx_slab_alloc(shpool, stats_data_size);
-	memset(new_block, 0, stats_data_size);
+	if (new_block == NULL )
+	{
+      ngx_log_error(NGX_LOG_EMERG, shm_zone->shm.log, 0,
+          "Cannot init shm of size %ul ", stats_data_size);
+      return NGX_ERROR;
+	}
+	ngx_memzero(new_block, stats_data_size);
 
 	shpool->data = new_block;
 	shm_zone->data = new_block;
@@ -791,22 +796,23 @@ static char *ngx_http_ustats(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	else
 		stats_data_size = size;
 
-    ngx_str_t * shm_name = NULL;
-	shm_name = ngx_palloc(cf->pool, sizeof(*shm_name));
-	shm_name->len = sizeof("stats_data");
-	shm_name->data = (unsigned char*)"stats_data";
-
 	if (stats_data_size == 0)
+	{
 		stats_data_size = ngx_pagesize;
+	}
 
-	stats_data = ngx_shared_memory_add(cf, shm_name, stats_data_size + 4 * ngx_pagesize, &ngx_http_ustats_module);
+	size_t memory_size = stats_data_size + 100 * ngx_pagesize;
+	stats_data = ngx_shared_memory_add(cf, &shm_name, memory_size, &ngx_http_ustats_module);
 
-	if (stats_data == NULL)
+	if (stats_data == NULL) {
+	  ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "ustats: ngx_shared_memory_add failed. size - %ui", memory_size);
 		return NGX_CONF_ERROR;
+	}
 
 	stats_data->init = ngx_http_ustats_init_shm;
+	stats_data->data = NULL;
 
-    return NGX_CONF_OK;
+  return NGX_CONF_OK;
 }
 
 
@@ -912,19 +918,19 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			// Peer name
 			size += sizeof("		[\"\", ");
 			// <peer_name> (server_conf_name || upstream_name) if there is more than one peer per backend
-			if (!peers->peer[k].server || peers->peer[k].server->naddrs > 1)
+			if (!peers->peer[k].peer_server || peers->peer[k].peer_server->naddrs > 1)
 			{
 				size += (peers->peer[k].name.len + 1) * sizeof(u_char);
 				size += sizeof(" ()");
-				size += (!peers->peer[k].server)
+				size += (!peers->peer[k].peer_server)
 							? (uscf->host.len + 1) * sizeof(u_char) // for implicit backends
 							// for the (good of) rest (of us, except the ones who are dead) (c)
-							: (peers->peer[k].server->name.len + 1) * sizeof(u_char);
+							: (peers->peer[k].peer_server->name.len + 1) * sizeof(u_char);
 			}
 			// one server <-> one peer - write server config name
 			else
 			{
-				size += (peers->peer[k].server->name.len + 1) * sizeof(u_char);
+				size += (peers->peer[k].peer_server->name.len + 1) * sizeof(u_char);
 			}
 
 			// disabled and blacklisted
@@ -967,7 +973,7 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			b->last = ngx_sprintf(b->last, "		[\"");
 
 			// peer name
-			if (!peers->peer[k].server || peers->peer[k].server->naddrs > 1)
+			if (!peers->peer[k].peer_server || peers->peer[k].peer_server->naddrs > 1)
 			{
 				// Dirty workaround. Strange bugs with nginx-created strings when running under Duma
 				size_t j;
@@ -975,14 +981,14 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 				for (j = 0; j < peers->peer[k].name.len; ++j)
 					b->last = ngx_sprintf(b->last, "%c", peers->peer[k].name.data[j]);
 				// Initial config name (unresolved)
-				b->last = (!peers->peer[k].server)
+				b->last = (!peers->peer[k].peer_server)
 								? ngx_sprintf(b->last, " (%s)", uscf->host.data)
-								: ngx_sprintf(b->last, " (%s)", (char*)peers->peer[k].server->name.data);
+								: ngx_sprintf(b->last, " (%s)", (char*)peers->peer[k].peer_server->name.data);
 			}
 			else
 			{
-				b->last = ngx_sprintf(b->last, "%s", (peers->peer[k].server->name.data
-						? (char*)peers->peer[k].server->name.data
+				b->last = ngx_sprintf(b->last, "%s", (peers->peer[k].peer_server->name.data
+						? (char*)peers->peer[k].peer_server->name.data
 						: (char*)uscf->host.data));
 			}
 
@@ -1034,7 +1040,7 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 
 		// implicit
 		unsigned implicit = 0;
-		if ((peers->number && (!peers->peer[0].server || !peers->peer[0].server->name.data)))
+		if ((peers->number && (!peers->peer[0].peer_server || !peers->peer[0].peer_server->name.data)))
 			implicit = 1;
 		b->last = ngx_sprintf(b->last, "		%d\n", implicit);
 

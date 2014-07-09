@@ -285,7 +285,7 @@
                   peers->peer[n].effective_weight = server[i].weight;
                   peers->peer[n].current_weight = 0;
 + #if (NGX_HAVE_USTATS_MODULE)
-+                 peers->peer[n].server = server + i;
++                 peers->peer[n].peer_server = server + i;
 +                 peers->peer[n].shm_start_offset = ustats_shm_offset;
 +                 ustats_shm_offset += USTATS_PEER_SEGMENT_LENGTH;
 + #endif
@@ -299,7 +299,7 @@
                   backup->peer[n].fail_timeout = server[i].fail_timeout;
                   backup->peer[n].down = server[i].down;
 + #if (NGX_HAVE_USTATS_MODULE)
-+                 backup->peer[n].server = server + i; // was "peers"
++                 backup->peer[n].peer_server = server + i; // was "peers"
 +                 backup->peer[n].shm_start_offset = ustats_shm_offset; // was "peers"
 +                 ustats_shm_offset += USTATS_PEER_SEGMENT_LENGTH;
 + #endif
@@ -326,7 +326,7 @@
 + 
 +     for (i = 0; i < u.naddrs; i++)
 +     {
-+         peers->peer[i].server = NULL;
++         peers->peer[i].peer_server = NULL;
 +         peers->peer[i].shm_start_offset = ustats_shm_offset;
 +         ustats_shm_offset += USTATS_PEER_SEGMENT_LENGTH;
 +     }
@@ -369,7 +369,7 @@
 + 
 + #if (NGX_HAVE_USTATS_MODULE)
 +     /* points to the server whose configuration was used for this peer */
-+     ngx_http_upstream_server_t      *server;
++     ngx_http_upstream_server_t      *peer_server;
 +     ngx_uint_t                      shm_start_offset;
 + #endif
   } ngx_http_upstream_rr_peer_t;
