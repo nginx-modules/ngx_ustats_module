@@ -112,7 +112,7 @@ const char HTML[] =
 		"\n"
 		"        <script type=\"text/javascript\">\n"
 		"            var REFRESH_INTERVAL = %d;\n"
-		"            var TABLE_COLUMNS_COUNT = 13;\n"
+		"            var TABLE_COLUMNS_COUNT = 15;\n"
 		"\n"
 		"            var updating = 0;\n"
 		"            var sortInfo = new Array();\n"
@@ -185,7 +185,10 @@ const char HTML[] =
 		"                            break;\n"
 		"\n"
 		"                        case \"asc\":\n"
-		"                            if (lastSpaceInd != -1 && lastSpaceInd == cell.innerHTML.length - 2) // last fail time cells have spaces\n"
+		"                            if ("
+		"                                lastSpaceInd != -1"
+		"                                && (lastSpaceInd == cell.innerHTML.length - 2 || lastSpaceInd == cell.innerHTML.length - 3)"
+		"                            ) // last fail time cells have spaces\n"
 		"                                cell.innerHTML = cell.innerHTML.substring(0, lastSpaceInd);\n"
 		"                            cell.innerHTML += \" &darr;\";\n"
 		"                            break;\n"
@@ -343,12 +346,12 @@ const char HTML[] =
 		"                    var aCell = (a.cells.length == TABLE_COLUMNS_COUNT) ? a.cells[columnIndex + 1] : a.cells[columnIndex];\n"
 		"                    var bCell = (b.cells.length == TABLE_COLUMNS_COUNT) ? b.cells[columnIndex + 1] : b.cells[columnIndex];\n"
 		"                    \n"
-		"                    if (columnIndex != TABLE_COLUMNS_COUNT - 3) // all except last fail\n"
+		"                    if (columnIndex != TABLE_COLUMNS_COUNT - 3 && columnIndex != TABLE_COLUMNS_COUNT - 4) // all except last fail\n"
 		"                    {\n"
 		"                        var result = parseInt(aCell.textContent) - parseInt(bCell.textContent)\n"
 		"                        return (mode == \"asc\") ? result : (mode == \"desc\") ? -result : 0;\n"
 		"                    }\n"
-		"                    else/* if (columnIndex == TABLE_COLUMNS_COUNT - 3) */\n"
+		"                    else/* if (columnIndex == TABLE_COLUMNS_COUNT - 3 || columnIndex == TABLE_COLUMNS_COUNT - 4) */\n"
 		"                    {\n"
 		"                        var result = (aCell.textContent > bCell.textContent) ? 1 :\n"
 		"                                     (aCell.textContent === bCell.textContent) ? 0 : -1;\n"
@@ -380,8 +383,8 @@ const char HTML[] =
 		"            {\n"
 		"                data = eval('(' + data + ')');\n"
 		"\n"
-		"                var headers = [\"Upstream\", \"Backend\", \"Requests\", \"HTTP 499\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
-		"                               \"HTTP<br/>write timeouts\", \"Fail timeouts, sec.\", \"Max fails\", \"Last fail\", \"Total fails\"];\n"
+		"                var headers = [\"Upstream\", \"Backend\", \"Requests\", \"HTTP 499\", \"HTTP 5XX\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
+		"                               \"HTTP<br/>write timeouts\", \"Fail timeouts, sec.\", \"Max fails\", \"Start time\", \"Last fail\", \"Total fails\"];\n"
 		"\n"
 		"                var table = document.createElement(\"table\");\n"
 		"\n"
@@ -450,7 +453,7 @@ const char HTML[] =
 		"                            if (blacklisted)\n"
 		"                                paramCell.className += \" cellBlacklisted\";\n"
 		"\n"
-		"                            // Current parameter is the last file time, and next (total fails) equals to 0\n"
+		"                            // Current parameter is the last fail time, and next (total fails) equals to 0\n"
 		"                            if (((param == data[us][b].length - 2) && (data[us][b][parseInt(param) + 1] == 0)) ||\n"
 		"                                ((param == data[us][b].length - 1) && (data[us][b][param] == 0)))\n"
 		"                            {\n"
@@ -937,7 +940,10 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 2;
 
 			// numeric parameters
-			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 10;
+			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 11;
+
+			// start time string
+      size += sizeof(u_char) * 24 + sizeof("\"\"") + sizeof(", ");
 
 			// failed access time string
 			size += sizeof(u_char) * 24 + sizeof("\"\"");
@@ -1005,6 +1011,8 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_STAT_OFFSET));
 			// 499s
 			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_HTTP499_STAT_OFFSET));
+			// 5xx
+			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_HTTP5XX_STAT_OFFSET));
 			// 500s
 			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_HTTP500_STAT_OFFSET));
 			// 503s
@@ -1019,11 +1027,23 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			b->last = ngx_sprintf(b->last, "%ui, ", peers->peer[k].fail_timeout);
 			// max fails
 			b->last = ngx_sprintf(b->last, "%ui, ", peers->peer[k].max_fails);
+			// start_time
+      if (*(time_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_START_TIME_STAT_OFFSET) == 0)
+      {
+          b->last = ngx_sprintf(b->last, "\"0000-00-00 00:00:00\", ");
+      }
+      else
+      {
+          char at_b[30];
+          struct tm * t = localtime((time_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_START_TIME_STAT_OFFSET));
+          strftime(at_b, sizeof(at_b), "%Y-%m-%d %H:%M:%S", t);
+          b->last = ngx_sprintf(b->last, "\"%s\", ", at_b);
+      }
 			// last fail
 			if (*(time_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_LAST_FAIL_TIME_STAT_OFFSET) == 0)
-            {
-                b->last = ngx_sprintf(b->last, "\"0000-00-00 00:00:00\", ");
-            }
+      {
+          b->last = ngx_sprintf(b->last, "\"0000-00-00 00:00:00\", ");
+      }
 			else
 			{
 				char at_b[30];

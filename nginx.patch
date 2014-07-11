@@ -2,7 +2,7 @@
 --- nginx/src/core/ngx_core.h	2012-07-17 15:19:21.544757318 +0600
 ***************
 *** 97,100 ****
---- 97,145 ----
+--- 97,148 ----
   #define NGX_DISABLE_SYMLINKS_NOTOWNER   2
   #endif
   
@@ -16,9 +16,12 @@
 + 
 + /// Holds HTTP 499 errors count
 + #define USTATS_HTTP499_STAT_OFFSET						(USTATS_REQ_STAT_OFFSET + sizeof(ngx_uint_t))
-+ 
-+ /// Holds HTTP 500 errors count
-+ #define USTATS_HTTP500_STAT_OFFSET						(USTATS_HTTP499_STAT_OFFSET + sizeof(ngx_uint_t))
++
++/// Holds HTTP 499 + 5xx errors count
++#define USTATS_HTTP5XX_STAT_OFFSET            (USTATS_HTTP499_STAT_OFFSET + sizeof(ngx_uint_t))
++
++/// Holds HTTP 500 errors count
++#define USTATS_HTTP500_STAT_OFFSET            (USTATS_HTTP5XX_STAT_OFFSET + sizeof(ngx_uint_t))
 + 
 + /// Holds HTTP 503 errors count
 + #define USTATS_HTTP503_STAT_OFFSET						(USTATS_HTTP500_STAT_OFFSET + sizeof(ngx_uint_t))
@@ -34,9 +37,12 @@
 + 
 + /// Holds last failed access time across all workers
 + #define USTATS_LAST_FAIL_TIME_STAT_OFFSET				(USTATS_WRITE_TIMEOUT_STAT_OFFSET + sizeof(ngx_uint_t))
++
++ /// Holds first stat access time across all workers
++ #define USTATS_START_TIME_STAT_OFFSET                 (USTATS_LAST_FAIL_TIME_STAT_OFFSET + USTATS_LAST_FAIL_STR_LEN)
 + 
 + /// Holds total fails count since server startup
-+ #define USTATS_FAIL_COUNT_STAT_OFFSET					(USTATS_LAST_FAIL_TIME_STAT_OFFSET + USTATS_LAST_FAIL_STR_LEN)
++ #define USTATS_FAIL_COUNT_STAT_OFFSET					(USTATS_START_TIME_STAT_OFFSET + USTATS_LAST_FAIL_STR_LEN)
 + 
 + /// Number of counters for each peer
 + #define USTATS_PEER_SEGMENT_LENGTH						(USTATS_FAIL_COUNT_STAT_OFFSET + sizeof(ngx_uint_t))
@@ -156,6 +162,11 @@
 + 			default:
 + 				break;
 + 		}
++
++       if (499 <= status && status < 600) {
++           ngx_atomic_fetch_add((ngx_uint_t*)USTATS_CALC_ADDRESS(
++               rrp->peers->peer[rrp->current].shm_start_offset, USTATS_HTTP5XX_STAT_OFFSET), 1);
++       }
 +     }
 + #endif
 + 
