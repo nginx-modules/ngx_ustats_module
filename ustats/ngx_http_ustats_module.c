@@ -112,7 +112,7 @@ const char HTML[] =
 		"\n"
 		"        <script type=\"text/javascript\">\n"
 		"            var REFRESH_INTERVAL = %d;\n"
-		"            var TABLE_COLUMNS_COUNT = 15;\n"
+		"            var TABLE_COLUMNS_COUNT = 17;\n"
 		"\n"
 		"            var updating = 0;\n"
 		"            var sortInfo = new Array();\n"
@@ -383,7 +383,7 @@ const char HTML[] =
 		"            {\n"
 		"                data = eval('(' + data + ')');\n"
 		"\n"
-		"                var headers = [\"Upstream\", \"Backend\", \"Requests\", \"HTTP 499\", \"HTTP 5XX\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
+		"                var headers = [\"Upstream\", \"Backend\", \"Requests\", \"RPS\", \"Req. time (ms)\", \"HTTP 499\", \"HTTP 5XX\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
 		"                               \"HTTP<br/>write timeouts\", \"Fail timeouts, sec.\", \"Max fails\", \"Start time\", \"Last fail\", \"Total fails\"];\n"
 		"\n"
 		"                var table = document.createElement(\"table\");\n"
@@ -474,7 +474,7 @@ const char HTML[] =
 		"                            backendRow.appendChild(paramCell);\n"
 		"\n"
 		"                            // Detect what column this parameter resides in and allow/disallow sorting\n"
-		"                            if (param != 0 && param != 10 && param != 11) // not name, not fail timeout and not max fails\n"
+		"                            if (param != 0 && param != 13 && param != 14) // not name, not fail timeout and not max fails\n"
 		"                            {\n"
 		"                                paramCell.className += \" cellSortTrigger\";\n"
 		"                                paramCell.setAttribute(\"onclick\", \"onSortTriggerClick(this);\");\n"
@@ -520,7 +520,7 @@ const char HTML[] =
 		"\n"
 		"            function onTimer()\n"
 		"            {\n"
-		"                var data = requestData(\"?json\");\n"
+		"                var data = requestData(\"?json=1\");\n"
 		"                updateTable(data);\n"
 		"            }\n"
 		"\n"
@@ -537,6 +537,7 @@ const char HTML[] =
 		"        <table width=\"100%%\" height=\"100%%\">\n"
 		"            <tr>\n"
 		"                <td align=\"center\" valign=\"middle\">\n"
+    "                    <a href=\"?reset=1\">Reset</a>\n"
 		"                    <div id=\"content\"></div>\n"
 		"                </td>\n"
 		"            </tr>\n"
@@ -564,10 +565,12 @@ typedef struct
     ngx_uint_t refresh_interval;
 } ngx_http_ustats_loc_conf_t;
 
-
+#define USTATS_REQ_MEASURE_COUNT 3
 
 static void * ngx_http_ustats_create_loc_conf(ngx_conf_t *cf);
 static char * ngx_http_ustats_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
+static ngx_int_t ngx_http_ustats_init(ngx_conf_t *cf);
+static ngx_int_t ngx_http_ustats_log_handler(ngx_http_request_t *r);
 
 static char * ngx_http_ustats(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 //static char * ngx_http_shm_size(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
@@ -576,7 +579,6 @@ static ngx_int_t ngx_http_ustats_handler(ngx_http_request_t *r);
 
 static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r);
 static ngx_buf_t * ngx_http_ustats_create_response_html(ngx_http_request_t * r);
-
 
 
 static ngx_command_t  ngx_http_ustats_commands[] =
@@ -625,7 +627,7 @@ static ngx_command_t  ngx_http_ustats_commands[] =
 static ngx_http_module_t  ngx_http_ustats_module_ctx =
 {
     NULL,                                  /* preconfiguration */
-    NULL,					               /* postconfiguration */
+    ngx_http_ustats_init,					               /* postconfiguration */
 
     NULL,							       /* create main configuration */
     NULL,                                  /* init main configuration */
@@ -849,20 +851,34 @@ static ngx_int_t ngx_http_ustats_handler(ngx_http_request_t *r)
             return rc;
     }
 
+    ngx_str_t value;
     // Send HTML or simple JSON
-    ngx_uint_t send_json = 0;
-    if (r->args.data)
-    	send_json = ngx_strncmp(r->args.data, "?json", 5) ? 1 : 0;
-
-    if (send_json)
+    if (ngx_http_arg(r, (u_char *)"json", 4, &value) == NGX_OK)
     {
-    	ngx_str_set(&r->headers_out.content_type, "text/plain");
-    	b = ngx_http_ustats_create_response_json(r);
+    	  ngx_str_set(&r->headers_out.content_type, "text/plain");
+    	  b = ngx_http_ustats_create_response_json(r);
     }
     else
     {
-    	ngx_str_set(&r->headers_out.content_type, "text/html");
-    	b = ngx_http_ustats_create_response_html(r);
+        if (stats_data && ngx_http_arg(r, (u_char *)"reset", 5, &value) == NGX_OK)
+        {
+            ngx_memzero(stats_data->data, stats_data_size);
+            ngx_http_clear_location(r);
+
+            r->headers_out.location = ngx_list_push(&r->headers_out.headers);
+            if (r->headers_out.location == NULL) {
+                return NGX_HTTP_INTERNAL_SERVER_ERROR;
+            }
+
+            r->headers_out.location->hash = 1;
+            ngx_str_set(&r->headers_out.location->key, "Location");
+            ngx_str_set(&r->headers_out.location->value, "?");
+
+            return NGX_HTTP_MOVED_TEMPORARILY;
+        }
+
+    	  ngx_str_set(&r->headers_out.content_type, "text/html");
+    	  b = ngx_http_ustats_create_response_html(r);
     }
 
     if (b == NULL)
@@ -940,7 +956,7 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 2;
 
 			// numeric parameters
-			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 11;
+			size += (sizeof(ngx_uint_t) + sizeof(", ")) * 13;
 
 			// start time string
       size += sizeof(u_char) * 24 + sizeof("\"\"") + sizeof(", ");
@@ -1009,6 +1025,19 @@ static ngx_buf_t * ngx_http_ustats_create_response_json(ngx_http_request_t * r)
 
 			// requests
 			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_STAT_OFFSET));
+
+      // RPS
+      ngx_uint_t rps = ( *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_COUNT_1_OFFSET)
+          + *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_COUNT_2_OFFSET)
+          + *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_COUNT_3_OFFSET) ) / USTATS_REQ_MEASURE_COUNT;
+      b->last = ngx_sprintf(b->last, "%d, ", rps);
+
+      // SPEED
+      ngx_uint_t speed = ( *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_TIMES_1_OFFSET)
+          + *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_TIMES_2_OFFSET)
+          + *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_REQ_TIMES_3_OFFSET) ) / USTATS_REQ_MEASURE_COUNT;
+      b->last = ngx_sprintf(b->last, "%d, ", speed);
+
 			// 499s
 			b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t*)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset, USTATS_HTTP499_STAT_OFFSET));
 			// 5xx
@@ -1096,4 +1125,93 @@ static ngx_buf_t * ngx_http_ustats_create_response_html(ngx_http_request_t * r)
 	b->last = ngx_sprintf(b->last, HTML, buf1, buf2, uslc->refresh_interval);
 
 	return b;
+}
+
+static ngx_int_t ngx_http_ustats_log_handler(ngx_http_request_t *r)
+{
+  ngx_uint_t                  i;
+  ngx_msec_int_t              ms;
+  ngx_http_upstream_state_t  *state;
+
+  if ( !stats_data || r->upstream_states == NULL || r->upstream_states->nelts == 0) {
+      return NGX_OK;
+  }
+
+  state = r->upstream_states->elts;
+  if ( state[0].peer && state[0].status)
+  {
+      ms = (ngx_msec_int_t)(state[0].response_sec * 1000 + state[0].response_msec);
+      ms = ngx_max(ms, 0);
+
+      ngx_http_upstream_rr_peer_data_t *rrp = r->upstream->peer.rr_data ? r->upstream->peer.rr_data : r->upstream->peer.data;
+
+      volatile ngx_uint_t *ts_ptr = (ngx_uint_t*)USTATS_CALC_ADDRESS( rrp->peers->peer[rrp->current].shm_start_offset, USTATS_TS_OFFSET);
+      volatile ngx_uint_t *rps_ptr = (ngx_uint_t*)USTATS_CALC_ADDRESS( rrp->peers->peer[rrp->current].shm_start_offset, USTATS_REQ_COUNT_OFFSET);
+      volatile ngx_uint_t *speed_ptr = (ngx_uint_t*)USTATS_CALC_ADDRESS( rrp->peers->peer[rrp->current].shm_start_offset, USTATS_REQ_TIMES_OFFSET);
+
+      ngx_time_t *tp = ngx_timeofday();
+      time_t stat_now = ngx_atomic_fetch_add(ts_ptr, 0);
+
+      if(tp->sec != stat_now && ngx_atomic_cmp_set(ts_ptr, stat_now, tp->sec))
+      {
+          ngx_uint_t rps_offset = 0;
+          ngx_uint_t speed_offset = 0;
+          switch( tp->sec % USTATS_REQ_MEASURE_COUNT )
+          {
+            case 2:
+                rps_offset = USTATS_REQ_COUNT_3_OFFSET;
+                speed_offset = USTATS_REQ_TIMES_3_OFFSET;
+            break;
+            case 1:
+                rps_offset = USTATS_REQ_COUNT_2_OFFSET;
+                speed_offset = USTATS_REQ_TIMES_2_OFFSET;
+            break;
+            default:
+                rps_offset = USTATS_REQ_COUNT_1_OFFSET;
+                speed_offset = USTATS_REQ_TIMES_1_OFFSET;
+          }
+
+          //сбросим данные текущей ячейки
+          ngx_uint_t rps_count = ngx_atomic_fetch_add(rps_ptr, 0);
+          ngx_uint_t speed_count = ngx_atomic_fetch_add(speed_ptr, 0);
+          ngx_atomic_fetch_add(rps_ptr, -rps_count + 1);
+          ngx_atomic_fetch_add(speed_ptr, -speed_count + ms);
+
+          speed_count = rps_count > 0 ? speed_count/rps_count : 0;
+
+          //сохраним для истории
+          volatile ngx_uint_t *history_rps_ptr = (ngx_uint_t*)USTATS_CALC_ADDRESS( rrp->peers->peer[rrp->current].shm_start_offset, rps_offset);
+          volatile ngx_uint_t *history_speed_ptr = (ngx_uint_t*)USTATS_CALC_ADDRESS( rrp->peers->peer[rrp->current].shm_start_offset, speed_offset);
+
+          ngx_uint_t history_rps_count = ngx_atomic_fetch_add(history_rps_ptr, 0);
+          ngx_uint_t history_speed_count = ngx_atomic_fetch_add(history_speed_ptr, 0);
+
+          ngx_atomic_fetch_add(history_rps_ptr, rps_count);
+          ngx_atomic_fetch_add(history_rps_ptr, -history_rps_count);
+          ngx_atomic_fetch_add(history_speed_ptr, speed_count);
+          ngx_atomic_fetch_add(history_speed_ptr, -history_speed_count);
+      }
+      else
+      {
+          ngx_atomic_fetch_add(rps_ptr, 1);
+          ngx_atomic_fetch_add(speed_ptr, ms);
+      }
+  }
+
+  return NGX_OK;
+}
+
+static ngx_int_t ngx_http_ustats_init(ngx_conf_t *cf)
+{
+  ngx_http_handler_pt *h;
+  ngx_http_core_main_conf_t *cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+  h = ngx_array_push(&cmcf->phases[NGX_HTTP_LOG_PHASE].handlers);
+  if (h == NULL)
+  {
+    return NGX_ERROR;
+  }
+  *h = ngx_http_ustats_log_handler;
+
+  return NGX_OK;
 }

@@ -2,7 +2,7 @@
 --- nginx/src/core/ngx_core.h	2012-07-17 15:19:21.544757318 +0600
 ***************
 *** 97,100 ****
---- 97,148 ----
+--- 97,160 ----
   #define NGX_DISABLE_SYMLINKS_NOTOWNER   2
   #endif
   
@@ -13,9 +13,21 @@
 + 
 + /// Stat offset relative to the peer position within the shared memory
 + #define USTATS_REQ_STAT_OFFSET             				0
-+ 
-+ /// Holds HTTP 499 errors count
-+ #define USTATS_HTTP499_STAT_OFFSET						(USTATS_REQ_STAT_OFFSET + sizeof(ngx_uint_t))
++
++#define USTATS_TS_OFFSET                      (USTATS_REQ_STAT_OFFSET + sizeof(ngx_uint_t))
++
++#define USTATS_REQ_COUNT_OFFSET               (USTATS_TS_OFFSET + sizeof(time_t))
++#define USTATS_REQ_COUNT_1_OFFSET             (USTATS_REQ_COUNT_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_COUNT_2_OFFSET             (USTATS_REQ_COUNT_1_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_COUNT_3_OFFSET             (USTATS_REQ_COUNT_2_OFFSET + sizeof(ngx_uint_t))
++
++#define USTATS_REQ_TIMES_OFFSET               (USTATS_REQ_COUNT_3_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_1_OFFSET             (USTATS_REQ_TIMES_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_2_OFFSET             (USTATS_REQ_TIMES_1_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_3_OFFSET             (USTATS_REQ_TIMES_2_OFFSET + sizeof(ngx_uint_t))
++
++/// Holds HTTP 499 errors count
++#define USTATS_HTTP499_STAT_OFFSET            (USTATS_REQ_TIMES_3_OFFSET + sizeof(ngx_uint_t))
 +
 +/// Holds HTTP 499 + 5xx errors count
 +#define USTATS_HTTP5XX_STAT_OFFSET            (USTATS_HTTP499_STAT_OFFSET + sizeof(ngx_uint_t))
