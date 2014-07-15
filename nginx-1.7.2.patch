@@ -173,7 +173,7 @@ diff -Naur nginx-1.7.2.orig/src/http/ngx_http_upstream.c nginx-1.7.2.ustats/src/
 +            break;
 +        }
 +
-+        if (499 <= status && status < 600) {
++        if (499 < status && status < 600) {
 +          ngx_atomic_fetch_add((ngx_uint_t*)USTATS_CALC_ADDRESS(
 +              rrp->peers->peer[rrp->current].shm_start_offset, USTATS_HTTP5XX_STAT_OFFSET), 1);
 +        }

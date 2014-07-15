@@ -175,7 +175,7 @@
 + 				break;
 + 		}
 +
-+       if (499 <= status && status < 600) {
++       if (499 < status && status < 600) {
 +           ngx_atomic_fetch_add((ngx_uint_t*)USTATS_CALC_ADDRESS(
 +               rrp->peers->peer[rrp->current].shm_start_offset, USTATS_HTTP5XX_STAT_OFFSET), 1);
 +       }
