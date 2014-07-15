@@ -1,7 +1,7 @@
 diff -Naur nginx-1.7.2.orig/src/core/ngx_core.h nginx-1.7.2.ustats/src/core/ngx_core.h
 --- nginx-1.7.2.orig/src/core/ngx_core.h	2014-06-17 16:51:26.000000000 +0400
-+++ nginx-1.7.2.ustats/src/core/ngx_core.h	2014-07-11 11:54:43.409545497 +0400
-@@ -98,4 +98,54 @@
++++ nginx-1.7.2.ustats/src/core/ngx_core.h	2014-07-14 12:01:01.452709243 +0400
+@@ -98,4 +98,66 @@
  #define NGX_DISABLE_SYMLINKS_NOTOWNER   2
  #endif
  
@@ -13,8 +13,20 @@ diff -Naur nginx-1.7.2.orig/src/core/ngx_core.h nginx-1.7.2.ustats/src/core/ngx_
 +/// Stat offset relative to the peer position within the shared memory
 +#define USTATS_REQ_STAT_OFFSET                    0
 +
++#define USTATS_TS_OFFSET                      (USTATS_REQ_STAT_OFFSET + sizeof(ngx_uint_t))
++
++#define USTATS_REQ_COUNT_OFFSET               (USTATS_TS_OFFSET + sizeof(time_t))
++#define USTATS_REQ_COUNT_1_OFFSET             (USTATS_REQ_COUNT_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_COUNT_2_OFFSET             (USTATS_REQ_COUNT_1_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_COUNT_3_OFFSET             (USTATS_REQ_COUNT_2_OFFSET + sizeof(ngx_uint_t))
++
++#define USTATS_REQ_TIMES_OFFSET               (USTATS_REQ_COUNT_3_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_1_OFFSET             (USTATS_REQ_TIMES_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_2_OFFSET             (USTATS_REQ_TIMES_1_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_REQ_TIMES_3_OFFSET             (USTATS_REQ_TIMES_2_OFFSET + sizeof(ngx_uint_t))
++
 +/// Holds HTTP 499 errors count
-+#define USTATS_HTTP499_STAT_OFFSET            (USTATS_REQ_STAT_OFFSET + sizeof(ngx_uint_t))
++#define USTATS_HTTP499_STAT_OFFSET            (USTATS_REQ_TIMES_3_OFFSET + sizeof(ngx_uint_t))
 +
 +/// Holds HTTP 499 + 5xx errors count
 +#define USTATS_HTTP5XX_STAT_OFFSET            (USTATS_HTTP499_STAT_OFFSET + sizeof(ngx_uint_t))
@@ -86,7 +98,7 @@ diff -Naur nginx-1.7.2.orig/src/http/modules/ngx_http_upstream_keepalive_module.
      kp->original_save_session = r->upstream->peer.save_session;
 diff -Naur nginx-1.7.2.orig/src/http/ngx_http_upstream.c nginx-1.7.2.ustats/src/http/ngx_http_upstream.c
 --- nginx-1.7.2.orig/src/http/ngx_http_upstream.c	2014-06-17 16:51:27.000000000 +0400
-+++ nginx-1.7.2.ustats/src/http/ngx_http_upstream.c	2014-07-11 11:56:42.953546165 +0400
++++ nginx-1.7.2.ustats/src/http/ngx_http_upstream.c	2014-07-14 14:34:51.764760827 +0400
 @@ -1252,6 +1252,18 @@
  
      c = u->peer.connection;
