@@ -16,7 +16,7 @@ USTATS module provides basic statistics for each backend in nginx upstreams:
 
 The module's **web interface** provides a good visual representation of what's going on with your backends. Values in some columns of the table can be sorted within each upstream row.
 
-Gathered data can also be retrieved in **JSON format**. To do so, append "?json" to the end of location on which the module was set to work on (see configuration instructions below).
+Gathered data can also be retrieved in **JSON format**. To do so, append "?json=1" to the end of location on which the module was set to work on (see configuration instructions below).
 
 ![Screenshot](https://github.com/0xc0dec/ustats/wiki/shot1.png)
 
@@ -28,11 +28,11 @@ Copy ustats folder into your nginx/src/http/modules folder
 Copy nginx.patch file into nginx root folder
 cd into nginx root folder and apply the patch:
 
-    patch -p1 -i nginx.patch
+    patch -p1 -i nginx-1.7.2.patch
     
 Run ./configure with all parameters you normally use, appending option
     
-    --add-module=src/http/modules/ustats
+    --add-module=src/http/modules/ngx_ustats_module
     make && make install
     
 Configuration
