@@ -717,7 +717,7 @@ static char* ngx_http_ustats_merge_loc_conf(ngx_conf_t *cf, void *parent, void *
 /*****************************************************************************/
 
 
-static ngx_int_t ngx_http_ustats_init_shm(ngx_shm_zone_t * shm_zone, void * data)
+static ngx_int_t ngx_http_ustats_init_shm(ngx_shm_zone_t *shm_zone, void *data)
 {
 	if (data)
 	{
