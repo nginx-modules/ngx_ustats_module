@@ -11,10 +11,10 @@
 
 
 const char HTML[] =
-		"<!DOCTYPE HTML PUBLIC \\\"-//W3C//DTD HTML 4.01 Transitional//EN\\\">\n"
-		"<html xmlns=\\\"http://www.w3.org/1999/xhtml\\\">\n"
+		"<!DOCTYPE html>\n"
+		"<html>\n"
 		"    <head>\n"
-		"        <style type=\"text/css\">\n"
+		"        <style>\n"
 		"            .statsTable\n"
 		"            {\n"
 		"                border-collapse: collapse;\n"
@@ -110,7 +110,7 @@ const char HTML[] =
 		"            }\n"
 		"        </style>\n"
 		"\n"
-		"        <script type=\"text/javascript\">\n"
+		"        <script>\n"
 		"            var REFRESH_INTERVAL = %d;\n"
 		"            var TABLE_COLUMNS_COUNT = 17;\n"
 		"\n"
