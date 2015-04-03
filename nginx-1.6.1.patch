@@ -1,8 +1,8 @@
 diff --git a/src/core/ngx_core.h b/src/core/ngx_core.h
-index aeea0c6..d73d12c 100644
+index a2d417e..d17065e 100644
 --- a/src/core/ngx_core.h
 +++ b/src/core/ngx_core.h
-@@ -98,4 +98,66 @@ void ngx_cpuinfo(void);
+@@ -97,4 +97,66 @@ void ngx_cpuinfo(void);
  #define NGX_DISABLE_SYMLINKS_NOTOWNER   2
  #endif
  
@@ -100,10 +100,10 @@ index d07ed9e..8350fec 100644
      kp->original_set_session = r->upstream->peer.set_session;
      kp->original_save_session = r->upstream->peer.save_session;
 diff --git a/src/http/ngx_http_upstream.c b/src/http/ngx_http_upstream.c
-index 18b04f7..90bbbe3 100644
+index 040bda1..fd23716 100644
 --- a/src/http/ngx_http_upstream.c
 +++ b/src/http/ngx_http_upstream.c
-@@ -1258,6 +1258,18 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
+@@ -1241,6 +1241,18 @@ ngx_http_upstream_connect(ngx_http_request_t *r, ngx_http_upstream_t *u)
  
      c = u->peer.connection;
  
@@ -122,7 +122,7 @@ index 18b04f7..90bbbe3 100644
      c->data = r;
  
      c->write->handler = ngx_http_upstream_handler;
-@@ -1708,6 +1720,12 @@ ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
+@@ -1566,6 +1578,12 @@ ngx_http_upstream_send_request_handler(ngx_http_request_t *r,
                     "http upstream send request handler");
  
      if (c->write->timedout) {
@@ -135,7 +135,7 @@ index 18b04f7..90bbbe3 100644
          ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_TIMEOUT);
          return;
      }
-@@ -1748,6 +1766,13 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
+@@ -1606,6 +1624,13 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
      c->log->action = "reading response header from upstream";
  
      if (c->read->timedout) {
@@ -149,7 +149,7 @@ index 18b04f7..90bbbe3 100644
          ngx_http_upstream_next(r, u, NGX_HTTP_UPSTREAM_FT_TIMEOUT);
          return;
      }
-@@ -1811,6 +1836,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
+@@ -1669,6 +1694,7 @@ ngx_http_upstream_process_header(ngx_http_request_t *r, ngx_http_upstream_t *u)
          if (n == 0) {
              ngx_log_error(NGX_LOG_ERR, c->log, 0,
                            "upstream prematurely closed connection");
@@ -157,7 +157,7 @@ index 18b04f7..90bbbe3 100644
          }
  
          if (n == NGX_ERROR || n == 0) {
-@@ -1923,6 +1949,29 @@ ngx_http_upstream_test_next(ngx_http_request_t *r, ngx_http_upstream_t *u)
+@@ -1781,6 +1807,29 @@ ngx_http_upstream_test_next(ngx_http_request_t *r, ngx_http_upstream_t *u)
  
      status = u->headers_in.status_n;
  
@@ -187,7 +187,7 @@ index 18b04f7..90bbbe3 100644
      for (un = ngx_http_upstream_next_errors; un->status; un++) {
  
          if (status != un->status) {
-@@ -2125,6 +2174,15 @@ ngx_http_upstream_test_connect(ngx_connection_t *c)
+@@ -1983,6 +2032,15 @@ ngx_http_upstream_test_connect(ngx_connection_t *c)
          if (err) {
              c->log->action = "connecting to upstream";
              (void) ngx_connection_error(c, err, "connect() failed");
@@ -203,7 +203,7 @@ index 18b04f7..90bbbe3 100644
              return NGX_ERROR;
          }
      }
-@@ -3418,6 +3476,21 @@ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
+@@ -3272,6 +3330,21 @@ ngx_http_upstream_next(ngx_http_request_t *r, ngx_http_upstream_t *u,
  {
      ngx_uint_t  status, state;
  
@@ -225,7 +225,7 @@ index 18b04f7..90bbbe3 100644
      ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                     "http next upstream, %xi", ft_type);
  
-@@ -3701,6 +3774,15 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
+@@ -3555,6 +3628,15 @@ ngx_http_upstream_finalize_request(ngx_http_request_t *r,
          rc = ngx_http_send_special(r, NGX_HTTP_FLUSH);
      }
  
@@ -242,7 +242,7 @@ index 18b04f7..90bbbe3 100644
  }
  
 diff --git a/src/http/ngx_http_upstream_round_robin.c b/src/http/ngx_http_upstream_round_robin.c
-index b39eeae..7896513 100644
+index 85ff558..fc8e118 100644
 --- a/src/http/ngx_http_upstream_round_robin.c
 +++ b/src/http/ngx_http_upstream_round_robin.c
 @@ -23,6 +23,12 @@ static void ngx_http_upstream_empty_save_session(ngx_peer_connection_t *pc,
@@ -258,7 +258,7 @@ index b39eeae..7896513 100644
  ngx_int_t
  ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
      ngx_http_upstream_srv_conf_t *us)
-@@ -78,6 +84,11 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
+@@ -76,6 +82,11 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
              }
  
              for (j = 0; j < server[i].naddrs; j++) {
@@ -267,10 +267,10 @@ index b39eeae..7896513 100644
 +                peer[n].shm_start_offset = ustats_shm_offset;
 +                ustats_shm_offset += USTATS_PEER_SEGMENT_LENGTH;
 +#endif
-                 peer[n].sockaddr = server[i].addrs[j].sockaddr;
-                 peer[n].socklen = server[i].addrs[j].socklen;
-                 peer[n].name = server[i].addrs[j].name;
-@@ -134,6 +145,11 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
+                 peers->peer[n].sockaddr = server[i].addrs[j].sockaddr;
+                 peers->peer[n].socklen = server[i].addrs[j].socklen;
+                 peers->peer[n].name = server[i].addrs[j].name;
+@@ -130,6 +141,11 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
              }
  
              for (j = 0; j < server[i].naddrs; j++) {
@@ -279,11 +279,11 @@ index b39eeae..7896513 100644
 +                peer[n].shm_start_offset = ustats_shm_offset; // was "peers"
 +                ustats_shm_offset += USTATS_PEER_SEGMENT_LENGTH;
 +#endif
-                 peer[n].sockaddr = server[i].addrs[j].sockaddr;
-                 peer[n].socklen = server[i].addrs[j].socklen;
-                 peer[n].name = server[i].addrs[j].name;
-@@ -205,6 +221,24 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
-         peer[i].fail_timeout = 10;
+                 backup->peer[n].sockaddr = server[i].addrs[j].sockaddr;
+                 backup->peer[n].socklen = server[i].addrs[j].socklen;
+                 backup->peer[n].name = server[i].addrs[j].name;
+@@ -198,6 +214,24 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
+         peers->peer[i].fail_timeout = 10;
      }
  
 +#if (NGX_HAVE_USTATS_MODULE)
@@ -307,7 +307,7 @@ index b39eeae..7896513 100644
      us->peer.data = peers;
  
      /* implicitly defined upstream has no backup servers */
-@@ -212,6 +246,18 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
+@@ -205,6 +239,18 @@ ngx_http_upstream_init_round_robin(ngx_conf_t *cf,
      return NGX_OK;
  }
  
@@ -327,10 +327,10 @@ index b39eeae..7896513 100644
  ngx_int_t
  ngx_http_upstream_init_round_robin_peer(ngx_http_request_t *r,
 diff --git a/src/http/ngx_http_upstream_round_robin.h b/src/http/ngx_http_upstream_round_robin.h
-index 9db82a6..bd0009c 100644
+index ea90ab9..bff05b8 100644
 --- a/src/http/ngx_http_upstream_round_robin.h
 +++ b/src/http/ngx_http_upstream_round_robin.h
-@@ -36,6 +36,12 @@ typedef struct {
+@@ -35,6 +35,12 @@ typedef struct {
  #if (NGX_HTTP_SSL)
      ngx_ssl_session_t              *ssl_session;   /* local to a process */
  #endif
@@ -344,7 +344,7 @@ index 9db82a6..bd0009c 100644
  
  
 diff --git a/src/os/unix/ngx_process_cycle.c b/src/os/unix/ngx_process_cycle.c
-index 3205aa5..4c465f3 100644
+index be55cea..93a8ef7 100644
 --- a/src/os/unix/ngx_process_cycle.c
 +++ b/src/os/unix/ngx_process_cycle.c
 @@ -10,6 +10,14 @@
@@ -362,7 +362,7 @@ index 3205aa5..4c465f3 100644
  
  static void ngx_start_worker_processes(ngx_cycle_t *cycle, ngx_int_t n,
      ngx_int_t type);
-@@ -230,6 +238,11 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
+@@ -226,6 +234,11 @@ ngx_master_process_cycle(ngx_cycle_t *cycle)
          if (ngx_reconfigure) {
              ngx_reconfigure = 0;
  
@@ -374,7 +374,7 @@ index 3205aa5..4c465f3 100644
              if (ngx_new_binary) {
                  ngx_start_worker_processes(cycle, ccf->worker_processes,
                                             NGX_PROCESS_RESPAWN);
-@@ -331,6 +344,10 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
+@@ -327,6 +340,10 @@ ngx_single_process_cycle(ngx_cycle_t *cycle)
  
          if (ngx_reconfigure) {
              ngx_reconfigure = 0;
