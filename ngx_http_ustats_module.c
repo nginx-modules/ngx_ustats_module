@@ -1129,7 +1129,6 @@ static ngx_buf_t * ngx_http_ustats_create_response_html(ngx_http_request_t * r)
 
 static ngx_int_t ngx_http_ustats_log_handler(ngx_http_request_t *r)
 {
-  ngx_uint_t                  i;
   ngx_msec_int_t              ms;
   ngx_http_upstream_state_t  *state;
 
