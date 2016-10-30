@@ -18,7 +18,7 @@ The module's **web interface** provides a good visual representation of what's g
 
 Gathered data can also be retrieved in **JSON format**. To do so, append `?json=1` to the end of location on which the module was set to work on (see configuration instructions below).
 
-![Screenshot](https://github.com/0xc0dec/ustats/wiki/shot1.png)
+![Screenshot](https://cloud.githubusercontent.com/assets/3759759/19833620/29290e0e-9e51-11e6-8400-7c26c1543237.png)
 
 
 #### Installation
