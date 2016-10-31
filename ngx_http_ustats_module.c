@@ -109,7 +109,7 @@ const char HTML[] =
     "\n"
     "        <script>\n"
     "            var REFRESH_INTERVAL = %d;\n"
-    "            var TABLE_COLUMNS_COUNT = 17;\n"
+    "            var TABLE_COLUMNS_COUNT = 18;\n"
     "\n"
     "            var updating = 0;\n"
     "            var sortInfo = new Array();\n"
@@ -380,7 +380,7 @@ const char HTML[] =
     "            {\n"
     "                data = eval('(' + data + ')');\n"
     "\n"
-    "                var headers = [\"Upstream\", \"Backend\", \"Requests\", \"RPS\", \"Req. time (ms)\", \"HTTP 499\", \"HTTP 5XX\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
+    "                var headers = [\"Upstream\", \"Backend\", \"Weight\", \"Requests\", \"RPS\", \"Req. time (ms)\", \"HTTP 499\", \"HTTP 5XX\", \"HTTP 500\", \"HTTP 503\", \"TCP errors\", \"HTTP<br/>read timeouts\",\n"
     "                               \"HTTP<br/>write timeouts\", \"Fail timeouts, sec.\", \"Max fails\", \"Start time\", \"Last fail\", \"Total fails\"];\n"
     "\n"
     "                var table = document.createElement(\"table\");\n"
@@ -471,7 +471,7 @@ const char HTML[] =
     "                            backendRow.appendChild(paramCell);\n"
     "\n"
     "                            // Detect what column this parameter resides in and allow/disallow sorting\n"
-    "                            if (param != 0 && param != 13 && param != 14) // not name, not fail timeout and not max fails\n"
+    "                            if (param != 0 && param != 14 && param != 15) // not name, not fail timeout and not max fails\n"
     "                            {\n"
     "                                paramCell.className += \" cellSortTrigger\";\n"
     "                                paramCell.setAttribute(\"onclick\", \"onSortTriggerClick(this);\");\n"
@@ -885,7 +885,7 @@ static ngx_buf_t *ngx_http_ustats_create_response_json(ngx_http_request_t *r) {
             size += (sizeof(ngx_uint_t) + sizeof(", ")) * 2;
 
             // numeric parameters
-            size += (sizeof(ngx_uint_t) + sizeof(", ")) * 13;
+            size += (sizeof(ngx_uint_t) + sizeof(", ")) * 14;
 
             // start time string
             size += sizeof(u_char) * 24 + sizeof("\"\"") + sizeof(", ");
@@ -943,11 +943,13 @@ static ngx_buf_t *ngx_http_ustats_create_response_json(ngx_http_request_t *r) {
 
             unsigned disabled = (peers->peer[k].down) ? 1 : 0;
             unsigned blacklisted = (now - *(time_t *)(USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset,
-                                    USTATS_LAST_FAIL_TIME_STAT_OFFSET))
-                                    < peers->peer[k].fail_timeout);
+                                    USTATS_LAST_FAIL_TIME_STAT_OFFSET)) < peers->peer[k].fail_timeout);
 
             // disabled and blacklisted
             b->last = ngx_sprintf(b->last, "%d, %d, ", disabled, blacklisted);
+
+            // weight
+            b->last = ngx_sprintf(b->last, "%ui, ", peers->peer[k].weight);
 
             // requests
             b->last = ngx_sprintf(b->last, "%d, ", *(ngx_uint_t *)USTATS_CALC_ADDRESS(peers->peer[k].shm_start_offset,
@@ -1100,7 +1102,7 @@ static ngx_int_t ngx_http_ustats_log_handler(ngx_http_request_t *r) {
                 speed_offset = USTATS_REQ_TIMES_1_OFFSET;
             }
 
-            //сбросим данные текущей ячейки
+            // reset the data of the current cell
             ngx_uint_t rps_count = ngx_atomic_fetch_add(rps_ptr, 0);
             ngx_uint_t speed_count = ngx_atomic_fetch_add(speed_ptr, 0);
             ngx_atomic_fetch_add(rps_ptr, -rps_count + 1);
@@ -1108,7 +1110,7 @@ static ngx_int_t ngx_http_ustats_log_handler(ngx_http_request_t *r) {
 
             speed_count = rps_count > 0 ? speed_count/rps_count : 0;
 
-            //сохраним для истории
+            // save for history
             volatile ngx_uint_t *history_rps_ptr = (ngx_uint_t *)USTATS_CALC_ADDRESS(
                     rrp->peers->peer[rrp->current].shm_start_offset, rps_offset);
             volatile ngx_uint_t *history_speed_ptr = (ngx_uint_t *)USTATS_CALC_ADDRESS(
