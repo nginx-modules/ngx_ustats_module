@@ -1,7 +1,7 @@
-nginx-ustats-module
-============
+# Basic statistics for NGINX backend
+## Nginx Module: ustats
 
-#### module provides basic statistics for each backend in nginx upstreams:
+### Features
 
 * Number of requests
 * Http 499/500/503 errors count
@@ -20,66 +20,61 @@ Gathered data can also be retrieved in **JSON format**. To do so, append `?json=
 
 ![Screenshot](https://cloud.githubusercontent.com/assets/3759759/19833620/29290e0e-9e51-11e6-8400-7c26c1543237.png)
 
-
 #### Installation
 
-(tested with nginx 1.2.2)
-Copy ustats folder into your nginx/src/http/modules folder
-Copy nginx.patch file into nginx root folder
-cd into nginx root folder and apply the patch:
+Tested with nginx: 1.2.2
 
-    patch -p1 -i nginx-1.7.2.patch
-    
-Run ./configure with all parameters you normally use, appending option
-    
-    --add-module=src/http/modules/ngx_ustats_module
-    make && make install
+* Copy ustats folder into your nginx/src/http/modules folder
+* Copy nginx.patch file into nginx root folder,
+  `cd` into nginx `root folder` and apply the patch
 
+        patch -p1 -i nginx-1.7.2.patch
+
+    Run `./configure` with all parameters you normally use, appending option
+
+        --add-module=src/http/modules/ngx_ustats_module
+        make && make install
 
 #### Configuration
 
 *Example*
 
-    location /ustats {
-        ustats memsize=3m;
-        ustats_refresh_interval 6000;
-        ustats_html_table_width 95;
-        ustats_html_table_height 95;
-    }
+```nginx
+location /ustats {
+    ustats memsize=3m;
+    ustats_refresh_interval 6000;
+    ustats_html_table_width 95;
+    ustats_html_table_height 95;
+}
+```
 
-The module supports a number of configuration directives:
+### Configuration directives - base
 
-* syntax: **ustats memsize=\<size\>;**
+#### ustats
+* **syntax**: `ustats memsize=size`
+* **default**: `n/a`
+* **context**: `location`
 
-  context: location
+Enables module handler for this location and sets the size of the shared memory that will be used to store statistics data across all worker processes.
+Example: `ustats memsize=2m;`
 
-  Enables module handler for this location and sets the size of the shared memory that will be used to store statistics data across all worker processes.
+#### ustats_html_table_width
+* **syntax**: `ustats_html_table_width number`
+* **default**: `70`
+* **context**: `location`
 
-  Example: `ustats memsize=2m;`
+Specifies web interface table width. Values less or equal to 100 are interpreted as percents, otherwise as pixels.
 
+#### ustats_html_table_height
+* **syntax**: `ustats_html_table_height number`
+* **default**: `70`
+* **context**: `location`
 
-* syntax: **ustats_html_table_width \<number\>;**
-  
-  context: location
+See _ustats_html_table_width_.
 
-  default: 70
+#### ustats_refresh_interval
+* **syntax**: `ustats_refresh_interval number`
+* **default**: `5000`
+* **context**: `location`
 
-  Specifies web interface table width. Values less or equal to 100 are interpreted as percents, otherwise as pixels.
-
-
-* syntax: **ustats_html_table_height \<number\>;**
-
-  context: location
-
-  default: 70
-
-  See _ustats_html_table_width_.
-
-
-* syntax: **ustats_refresh_interval \<number\>;**
-
-  context: location
-
-  default: 5000
-
-  Specifies page refresh interval in milliseconds.
+Specifies page refresh interval in milliseconds.

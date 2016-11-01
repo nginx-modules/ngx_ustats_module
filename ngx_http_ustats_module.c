@@ -1,6 +1,9 @@
 /**
- * Copyright (c) 2010-2012 Aleksey "0xc0dec" Fedotov
- * http://skbkontur.ru
+ * Copyright (C) 2015-2016 Denis Denisov
+ * Copyright (C) 2014 Dmitry Saprykin
+ * Copyright (C) 2010-2012 Aleksey Fedotov (0xc0dec), kontur.ru
+ *
+ * @author Aleksey Fedotov (0xc0dec)
  */
 
 #include <ngx_config.h>
